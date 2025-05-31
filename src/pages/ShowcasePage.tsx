@@ -1,10 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Card, { CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { VerificationBadge } from '../components/ui/Badge';
+import MeritBadgeIcon from '../components/ui/MeritBadgeIcon';
+import MeritBadgeModal from '../components/modals/MeritBadgeModal';
 import { Film, ThumbsUp, Share2 } from 'lucide-react';
 
 const ShowcasePage: React.FC = () => {
-  // Placeholder reels data
+  const [selectedBadge, setSelectedBadge] = useState<any>(null);
+
+  // Placeholder reels data with merit badges
   const reels = [
     {
       id: 1,
@@ -14,6 +18,21 @@ const ShowcasePage: React.FC = () => {
       skills: ['React', 'JavaScript', 'Tailwind CSS'],
       likes: 128,
       shares: 45,
+      meritBadge: {
+        id: 'mb1',
+        professional: {
+          name: 'John Expert',
+          title: 'Senior Frontend Developer',
+          expertise: ['React', 'JavaScript', 'Web Development'],
+        },
+        awardedAt: '2025-03-15T10:00:00Z',
+        videoStatement: 'https://example.com/video1.mp4',
+        rubricScores: {
+          clarity: 5,
+          technicalAccuracy: 4,
+          efficiency: 5,
+        },
+      },
     },
     {
       id: 2,
@@ -146,6 +165,15 @@ const ShowcasePage: React.FC = () => {
                       </svg>
                     </div>
                   </button>
+                  
+                  {reel.meritBadge && (
+                    <div className="absolute top-2 right-2">
+                      <MeritBadgeIcon 
+                        onClick={() => setSelectedBadge(reel.meritBadge)}
+                        className="bg-white rounded-full p-2 shadow-md"
+                      />
+                    </div>
+                  )}
                 </div>
                 
                 <div className="p-4 flex-1 flex flex-col">
@@ -190,6 +218,13 @@ const ShowcasePage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Merit Badge Modal */}
+      <MeritBadgeModal
+        isOpen={!!selectedBadge}
+        onClose={() => setSelectedBadge(null)}
+        meritBadge={selectedBadge}
+      />
     </div>
   );
 };
