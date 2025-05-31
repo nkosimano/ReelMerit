@@ -31,7 +31,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // Check if user has the required roles
   if (allowedRoles.length > 0 && profile && !allowedRoles.some(role => profile.roles.includes(role))) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/\" replace />;
   }
 
   // Check if Merit Pitch is required and not completed
