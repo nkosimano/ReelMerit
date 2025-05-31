@@ -9,7 +9,11 @@ const RegisterPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState('Candidate');
+  const [roles, setRoles] = useState({
+    Candidate: false,
+    Professional: false,
+    Employer: false
+  });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { signUp } = useAuth();
@@ -32,23 +36,44 @@ const RegisterPage: React.FC = () => {
       setError('Password must be at least 6 characters');
       return;
     }
+
+    const selectedRoles = Object.entries(roles)
+      .filter(([_, isSelected]) => isSelected)
+      .map(([role]) => role);
+
+    if (selectedRoles.length === 0) {
+      setError('Please select at least one role');
+      return;
+    }
     
     setLoading(true);
     setError(null);
     
     try {
-      const { error, data } = await signUp(email, password, role);
+      const { error, data } = await signUp(email, password, selectedRoles);
       
       if (error) {
         setError(error.message || 'Failed to sign up');
       } else {
-        navigate('/');
+        // If user selected Candidate role, redirect to Merit Pitch page
+        if (roles.Candidate) {
+          navigate('/onboarding/merit-pitch');
+        } else {
+          navigate('/');
+        }
       }
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRoleChange = (role: keyof typeof roles) => {
+    setRoles(prev => ({
+      ...prev,
+      [role]: !prev[role]
+    }));
   };
 
   return (
@@ -140,21 +165,43 @@ const RegisterPage: React.FC = () => {
             </div>
 
             <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700">
-                I am a
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                I am a (select all that apply)
               </label>
-              <div className="mt-1">
-                <select
-                  id="role"
-                  name="role"
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  className="select w-full"
-                >
-                  <option value="Candidate">Candidate (Looking for opportunities)</option>
-                  <option value="Professional">Professional (Verify candidates)</option>
-                  <option value="Employer">Employer (Hiring candidates)</option>
-                </select>
+              <div className="space-y-2">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={roles.Candidate}
+                    onChange={() => handleRoleChange('Candidate')}
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                  />
+                  <span className="ml-2 text-sm text-gray-900">
+                    Candidate (Looking for opportunities)
+                  </span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={roles.Professional}
+                    onChange={() => handleRoleChange('Professional')}
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                  />
+                  <span className="ml-2 text-sm text-gray-900">
+                    Professional (Verify candidates)
+                  </span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={roles.Employer}
+                    onChange={() => handleRoleChange('Employer')}
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                  />
+                  <span className="ml-2 text-sm text-gray-900">
+                    Employer (Hiring candidates)
+                  </span>
+                </label>
               </div>
             </div>
 

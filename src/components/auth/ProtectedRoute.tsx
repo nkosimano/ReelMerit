@@ -5,11 +5,13 @@ import { useAuth } from '../../context/AuthContext';
 interface ProtectedRouteProps {
   children: React.ReactNode;
   allowedRoles?: string[];
+  requireMeritPitch?: boolean;
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
   children, 
-  allowedRoles = [] 
+  allowedRoles = [],
+  requireMeritPitch = false
 }) => {
   const { user, profile, loading } = useAuth();
 
@@ -27,9 +29,14 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/login" replace />;
   }
 
-  // If roles are specified and the user's role doesn't match, redirect to home
-  if (allowedRoles.length > 0 && profile && !allowedRoles.includes(profile.role)) {
-    return <Navigate to="/\" replace />;
+  // Check if user has the required roles
+  if (allowedRoles.length > 0 && profile && !allowedRoles.some(role => profile.roles.includes(role))) {
+    return <Navigate to="/" replace />;
+  }
+
+  // Check if Merit Pitch is required and not completed
+  if (requireMeritPitch && profile?.roles.includes('Candidate') && !profile.hasCompletedMeritPitch) {
+    return <Navigate to="/onboarding/merit-pitch" replace />;
   }
 
   return <>{children}</>;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import HomePage from './pages/HomePage';
 import ShowcasePage from './pages/ShowcasePage';
@@ -12,6 +12,7 @@ import VerificationQueuePage from './pages/VerificationQueuePage';
 import ReelReviewPage from './pages/ReelReviewPage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
+import MeritPitchPage from './pages/onboarding/MeritPitchPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import { useAuth } from './context/AuthContext';
 
@@ -32,6 +33,17 @@ function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route 
+        path="/onboarding/merit-pitch" 
+        element={
+          <ProtectedRoute 
+            allowedRoles={['Candidate']} 
+            requireMeritPitch={false}
+          >
+            <MeritPitchPage />
+          </ProtectedRoute>
+        } 
+      />
       <Route path="/" element={<Layout />}>
         <Route index element={<HomePage />} />
         <Route path="showcase" element={<ShowcasePage />} />
@@ -48,7 +60,10 @@ function App() {
         <Route 
           path="profile" 
           element={
-            <ProtectedRoute allowedRoles={['Candidate', 'Professional', 'Employer']}>
+            <ProtectedRoute 
+              allowedRoles={['Candidate', 'Professional', 'Employer']}
+              requireMeritPitch={true}
+            >
               <ProfilePage />
             </ProtectedRoute>
           } 

@@ -4,9 +4,10 @@ import type { User } from '@supabase/supabase-js';
 
 interface UserProfile {
   id: string;
-  role: 'Candidate' | 'Professional' | 'Employer';
+  roles: string[];
   email: string;
   name?: string;
+  hasCompletedMeritPitch?: boolean;
 }
 
 interface AuthContextType {
@@ -14,7 +15,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any | null }>;
-  signUp: (email: string, password: string, role: string) => Promise<{ error: any | null; data: any | null }>;
+  signUp: (email: string, password: string, roles: string[]) => Promise<{ error: any | null; data: any | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -65,22 +66,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchUserProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      // Fetch user profile
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
 
-      if (error) {
-        throw error;
-      }
+      if (profileError) throw profileError;
 
-      if (data) {
+      // Fetch user roles
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId);
+
+      if (rolesError) throw rolesError;
+
+      if (profileData) {
         setProfile({
-          id: data.id,
-          role: data.role,
-          email: data.email,
-          name: data.name,
+          id: profileData.id,
+          roles: rolesData.map(r => r.role),
+          email: profileData.email,
+          name: profileData.name,
+          hasCompletedMeritPitch: profileData.has_completed_merit_pitch,
         });
       }
     } catch (error) {
@@ -102,16 +111,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signUp = async (email: string, password: string, role: string) => {
+  const signUp = async (email: string, password: string, roles: string[]) => {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: {
-            role,
-          },
-        },
       });
 
       if (!error && data.user) {
@@ -122,12 +126,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             {
               id: data.user.id,
               email,
-              role,
+              has_completed_merit_pitch: false,
             },
           ]);
 
         if (profileError) {
           return { error: profileError, data: null };
+        }
+
+        // Create role records
+        const roleRecords = roles.map(role => ({
+          user_id: data.user.id,
+          role,
+        }));
+
+        const { error: rolesError } = await supabase
+          .from('user_roles')
+          .insert(roleRecords);
+
+        if (rolesError) {
+          return { error: rolesError, data: null };
         }
       }
 
