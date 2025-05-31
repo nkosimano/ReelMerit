@@ -1,22 +1,125 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Card, { CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { Badge, VerificationBadge } from '../components/ui/Badge';
-import { Film, User, Plus, Edit, Upload, Trash2 } from 'lucide-react';
+import MeritBadgeIcon from '../components/ui/MeritBadgeIcon';
+import MeritBadgeModal from '../components/modals/MeritBadgeModal';
+import VerificationRequestModal from '../components/modals/VerificationRequestModal';
+import { Film, User, Plus, Edit, Upload, Trash2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
+
+interface Reel {
+  id: string;
+  title: string;
+  description: string;
+  skills: string[];
+  videoUrl: string;
+  createdAt: string;
+  verificationStatus?: 'unverified' | 'pending' | 'verified' | 'rejected';
+  verificationFeedback?: string;
+  meritBadge?: {
+    id: string;
+    professional: {
+      name: string;
+      title: string;
+      expertise: string[];
+    };
+    awardedAt: string;
+    videoStatement: string;
+    rubricScores: {
+      clarity: number;
+      technicalAccuracy: number;
+      efficiency: number;
+    };
+  };
+}
 
 const ProfilePage: React.FC = () => {
   const { profile } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
+  const [reels, setReels] = useState<Reel[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedReel, setSelectedReel] = useState<Reel | null>(null);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [showMeritBadgeModal, setShowMeritBadgeModal] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   
-  // Show reels tab by default for candidates
-  React.useEffect(() => {
+  useEffect(() => {
     if (profile?.role === 'Candidate') {
       setActiveTab('reels');
+      fetchReels();
     }
   }, [profile]);
-  
+
+  const fetchReels = async () => {
+    try {
+      const { data: reelsData, error: reelsError } = await supabase
+        .from('reels')
+        .select('*')
+        .eq('user_id', profile?.id);
+
+      if (reelsError) throw reelsError;
+
+      const reelsWithStatus = await Promise.all(
+        reelsData.map(async (reel) => {
+          const { data: verificationData } = await supabase
+            .from('skill_verification_requests')
+            .select('*')
+            .eq('reel_id', reel.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+          const { data: meritBadgeData } = await supabase
+            .from('merit_badges')
+            .select(`
+              id,
+              professional:professional_id (
+                name,
+                title,
+                expertise
+              ),
+              awarded_at,
+              video_statement,
+              rubric_scores
+            `)
+            .eq('reel_id', reel.id)
+            .single();
+
+          return {
+            ...reel,
+            verificationStatus: verificationData?.status || 'unverified',
+            verificationFeedback: verificationData?.feedback,
+            meritBadge: meritBadgeData,
+          };
+        })
+      );
+
+      setReels(reelsWithStatus);
+    } catch (error) {
+      console.error('Error fetching reels:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerificationRequest = (reel: Reel) => {
+    setSelectedReel(reel);
+    setShowVerificationModal(true);
+  };
+
+  const handleShowMeritBadge = (reel: Reel) => {
+    setSelectedReel(reel);
+    setShowMeritBadgeModal(true);
+  };
+
+  const handleShowFeedback = (reel: Reel) => {
+    setSelectedReel(reel);
+    setShowFeedbackModal(true);
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
@@ -26,7 +129,6 @@ const ProfilePage: React.FC = () => {
         </p>
       </div>
 
-      {/* Profile Tabs */}
       <div className="mb-8 border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
           <button
@@ -57,10 +159,8 @@ const ProfilePage: React.FC = () => {
         </nav>
       </div>
 
-      {/* Profile Content */}
       {activeTab === 'profile' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Profile Summary */}
           <Card className="lg:col-span-1">
             <CardContent className="p-6">
               <div className="flex flex-col items-center text-center">
@@ -149,7 +249,6 @@ const ProfilePage: React.FC = () => {
             </CardContent>
           </Card>
           
-          {/* Profile Details */}
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle>Profile Details</CardTitle>
@@ -257,10 +356,8 @@ const ProfilePage: React.FC = () => {
         </div>
       )}
 
-      {/* Reels Content (for Candidates) */}
       {activeTab === 'reels' && profile?.role === 'Candidate' && (
         <div>
-          {/* Upload Form */}
           <Card className="mb-8">
             <CardHeader>
               <CardTitle>Upload New Reel</CardTitle>
@@ -325,7 +422,6 @@ const ProfilePage: React.FC = () => {
             </CardContent>
           </Card>
           
-          {/* My Reels List */}
           <div>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-gray-900">My Reels</h2>
@@ -335,79 +431,73 @@ const ProfilePage: React.FC = () => {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Reel Item 1 */}
-              <Card>
-                <div className="aspect-video bg-gray-200 rounded-t-lg relative flex items-center justify-center">
-                  <Film className="w-12 h-12 text-gray-400" />
-                  <button className="absolute inset-0 w-full h-full flex items-center justify-center bg-black bg-opacity-30 opacity-0 hover:opacity-100 transition-opacity rounded-t-lg">
-                    <div className="w-16 h-16 rounded-full bg-white bg-opacity-90 flex items-center justify-center">
-                      <svg className="w-8 h-8 text-primary-600" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    </div>
-                  </button>
-                </div>
-                
-                <CardContent className="p-4">
-                  <h3 className="font-semibold text-gray-900 mb-2">Frontend Development with React</h3>
-                  
-                  <div className="mb-4 flex flex-wrap gap-1">
-                    <Badge variant="secondary">React</Badge>
-                    <Badge variant="secondary">JavaScript</Badge>
-                    <Badge variant="secondary">Tailwind CSS</Badge>
+              {reels.map((reel) => (
+                <Card key={reel.id}>
+                  <div className="aspect-video bg-gray-200 rounded-t-lg relative flex items-center justify-center">
+                    <Film className="w-12 h-12 text-gray-400" />
+                    <button className="absolute inset-0 w-full h-full flex items-center justify-center bg-black bg-opacity-30 opacity-0 hover:opacity-100 transition-opacity rounded-t-lg">
+                      <div className="w-16 h-16 rounded-full bg-white bg-opacity-90 flex items-center justify-center">
+                        <svg className="w-8 h-8 text-primary-600" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      </div>
+                    </button>
+
+                    {reel.meritBadge && (
+                      <div className="absolute top-2 right-2">
+                        <MeritBadgeIcon 
+                          onClick={() => handleShowMeritBadge(reel)}
+                          className="bg-white rounded-full p-2 shadow-md"
+                        />
+                      </div>
+                    )}
                   </div>
                   
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">Uploaded 2 days ago</span>
-                    <div className="flex space-x-1">
-                      <button className="p-1 text-gray-500 hover:text-primary-600 transition-colors">
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button className="p-1 text-gray-500 hover:text-error-600 transition-colors">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                  <CardContent className="p-4">
+                    <h3 className="font-semibold text-gray-900 mb-2">{reel.title}</h3>
+                    
+                    <div className="mb-4 flex flex-wrap gap-1">
+                      {reel.skills.map((skill, index) => (
+                        <Badge key={index} variant="secondary">{skill}</Badge>
+                      ))}
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              {/* Reel Item 2 */}
-              <Card>
-                <div className="aspect-video bg-gray-200 rounded-t-lg relative flex items-center justify-center">
-                  <Film className="w-12 h-12 text-gray-400" />
-                  <button className="absolute inset-0 w-full h-full flex items-center justify-center bg-black bg-opacity-30 opacity-0 hover:opacity-100 transition-opacity rounded-t-lg">
-                    <div className="w-16 h-16 rounded-full bg-white bg-opacity-90 flex items-center justify-center">
-                      <svg className="w-8 h-8 text-primary-600" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
+
+                    <div className="flex items-center justify-between mb-4">
+                      {reel.verificationStatus === 'verified' ? (
+                        <VerificationBadge status="verified" />
+                      ) : reel.verificationStatus === 'pending' ? (
+                        <Badge variant="warning">Verification Pending</Badge>
+                      ) : reel.verificationStatus === 'rejected' ? (
+                        <button
+                          onClick={() => handleShowFeedback(reel)}
+                          className="flex items-center text-error-600 text-sm hover:text-error-700"
+                        >
+                          <AlertCircle className="w-4 h-4 mr-1" />
+                          View Feedback
+                        </button>
+                      ) : (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => handleVerificationRequest(reel)}
+                        >
+                          Request Verification
+                        </Button>
+                      )}
+
+                      <div className="flex space-x-1">
+                        <button className="p-1 text-gray-500 hover:text-primary-600 transition-colors">
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button className="p-1 text-gray-500 hover:text-error-600 transition-colors">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                  </button>
-                </div>
-                
-                <CardContent className="p-4">
-                  <h3 className="font-semibold text-gray-900 mb-2">UI Animation Techniques</h3>
-                  
-                  <div className="mb-4 flex flex-wrap gap-1">
-                    <Badge variant="secondary">CSS</Badge>
-                    <Badge variant="secondary">Animation</Badge>
-                    <Badge variant="secondary">UI</Badge>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">Uploaded 1 week ago</span>
-                    <div className="flex space-x-1">
-                      <button className="p-1 text-gray-500 hover:text-primary-600 transition-colors">
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button className="p-1 text-gray-500 hover:text-error-600 transition-colors">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              {/* New Reel Card */}
+                  </CardContent>
+                </Card>
+              ))}
+
               <Card className="border-2 border-dashed border-gray-300 bg-gray-50 flex flex-col items-center justify-center p-6 h-full">
                 <Plus className="w-12 h-12 text-gray-400 mb-4" />
                 <p className="text-sm font-medium text-gray-900 mb-4 text-center">
@@ -419,6 +509,39 @@ const ProfilePage: React.FC = () => {
               </Card>
             </div>
           </div>
+
+          {selectedReel && (
+            <>
+              <VerificationRequestModal
+                isOpen={showVerificationModal}
+                onClose={() => setShowVerificationModal(false)}
+                reelId={selectedReel.id}
+                skills={selectedReel.skills}
+              />
+
+              <MeritBadgeModal
+                isOpen={showMeritBadgeModal}
+                onClose={() => setShowMeritBadgeModal(false)}
+                meritBadge={selectedReel.meritBadge}
+              />
+
+              {showFeedbackModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                  <div className="bg-white rounded-lg max-w-md w-full mx-4 p-6">
+                    <h3 className="text-xl font-semibold mb-4">Verification Feedback</h3>
+                    <div className="bg-error-50 border border-error-200 rounded-lg p-4 mb-6">
+                      <p className="text-error-700">{selectedReel.verificationFeedback}</p>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button variant="primary" onClick={() => setShowFeedbackModal(false)}>
+                        Close
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>
