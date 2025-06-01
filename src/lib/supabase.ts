@@ -1,7 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Normally these would be in .env file and accessed via import.meta.env
-const supabaseUrl = 'https://your-supabase-project-url.supabase.co';
-const supabaseKey = 'your-supabase-anon-key';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error('Missing Supabase environment variables. Please connect to Supabase using the "Connect to Supabase" button in the top right.');
+}
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
