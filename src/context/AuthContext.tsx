@@ -116,24 +116,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            initial_roles: roles
+          }
+        }
       });
 
       if (!error && data.user) {
-        // Create profile record
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert([
-            {
-              id: data.user.id,
-              email,
-              has_completed_merit_pitch: false,
-            },
-          ]);
-
-        if (profileError) {
-          return { error: profileError, data: null };
-        }
-
         // Create role records
         const roleRecords = roles.map(role => ({
           user_id: data.user.id,
