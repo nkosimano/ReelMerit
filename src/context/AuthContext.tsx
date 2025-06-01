@@ -123,22 +123,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       });
 
-      if (!error && data.user) {
-        // Create role records
-        const roleRecords = roles.map(role => ({
-          user_id: data.user.id,
-          role,
-        }));
-
-        const { error: rolesError } = await supabase
-          .from('user_roles')
-          .insert(roleRecords);
-
-        if (rolesError) {
-          return { error: rolesError, data: null };
-        }
-      }
-
       return { data, error };
     } catch (error) {
       return { error, data: null };
